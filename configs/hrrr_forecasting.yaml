@@ -1,0 +1,79 @@
+# Configuration for HRRR Composite Reflectivity Prediction + Super-Resolution
+# Input: HRRR 0.1 deg atmospheric variables -> Output: HRRR 0.05 deg composite reflectivity
+
+trainer:
+  max_epochs: 101
+  batch_size: 32
+  num_workers: 2
+  checkpoint:  # Path to checkpoint to resume from, or null
+  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v2"
+  data_type: "bfloat16"  # "float32", "bfloat16"
+  train_loss: "lat_mse"
+  num_gpus: 16
+  buffer_size: 100
+
+parallelism:
+  fsdp: 1
+  simple_ddp: 1
+  tensor_par: 1
+  seq_par: 1
+
+data:
+  # Downscaling mode: separate directories for input (low-res) and output (high-res)
+  forecast_type: "downscaling"
+  low_res_dir: "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.1_deg/"
+  high_res_dir: "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.05_deg/"
+
+  # Input variables (at 0.1 deg resolution)
+  variables:
+    - "land_sea_mask"
+    - "orography"
+    - "lattitude"
+    # - "2m_temperature"
+    - "mean_sea_level_pressure"
+    # - "surface_pressure"
+    - "geopotential_475"
+    # - "geopotential_850"
+    - "specific_humidity_850"
+    # - "specific_humidity_900"
+    # - "temperature_475"
+    # - "temperature_850"
+    - "u_component_of_wind_850"
+    - "v_component_of_wind_850"
+    # - "vertical_velocity_850"
+    # - "vertical_velocity_900"
+
+  # Output variables (at 0.05 deg resolution)
+  out_variables:
+    - "composite_reflectivity"
+
+model:
+  preset: "res_slimvit"
+
+  img_size: [256, 512]  # [H, W] of low-res input - ADJUST to match your 0.1 deg grid
+  superres_factor: 2    # 0.1 deg -> 0.05 deg = 2x super-resolution
+
+  # Model architecture
+  history: 1
+  cnn_ratio: 4
+  patch_size: 8
+  embed_dim: 1536
+  depth: 8
+  decoder_depth: 4
+  num_heads: 12
+  mlp_ratio: 4.0
+  drop_path: 0.1
+  drop_rate: 0.1
+  learn_pos_emb: True
+  input_refine_cnn: False  # Optional: set True for input refinement CNN
+
+  # Optimizer settings
+  base_lr: 5e-5
+  weight_decay: 0.00001
+  beta_1: 0.9
+  beta_2: 0.99
+
+  # Scheduler settings
+  warmup_epochs: 5
+  warmup_start_lr: 1e-7
+  eta_min: 1e-7

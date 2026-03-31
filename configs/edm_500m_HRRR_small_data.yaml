@@ -1,0 +1,321 @@
+#-----------   TRAINER  -------------------------------------------------------
+trainer:
+  max_epochs: 300
+  checkpoint:
+  pretrain: 
+  batch_size: 8
+  buffer_size: 100
+  num_workers: 2
+  data_type: float32
+  gpu_type: "amd" #amd or nvidia or leave it empty
+  train_loss: "mse"
+
+#----------  Parallelism and Efficient Computing -------------------------------
+parallelism:
+  fsdp: 8
+  simple_ddp: 16
+  tensor_par: 1
+  seq_par: 1
+
+
+### Tiling
+tiling:
+  do_tiling: True
+  div: 4
+  overlap: 14
+
+###Reslim Input Data Compression
+compression:
+  compress_ratio: 1
+
+
+#------------   EDM Specific Hyperparameters -----------------------------------
+EDM_hyper:
+  sigma_data:  1  
+  weight_mode:  
+ 
+# ---------------------------- MODEL -------------------------------------------
+model:
+  preset: res_slimvit
+  lr: 3e-5
+  weight_decay: 1e-5
+  beta_1: 0.9
+  beta_2: 0.99
+  warmup_epochs: 2
+  warmup_start_lr: 1e-7
+  eta_min: 1e-8
+  superres_mag: 2    # 0.1 deg -> 0.05 deg is 2x super-resolution
+  cnn_ratio: 4
+  patch_size: 6
+  embed_dim: 1536
+  depth: 8
+  decoder_depth: 4
+  num_heads: 12
+  mlp_ratio: 4
+  drop_path: 0.1
+  drop_rate: 0.1
+
+# ---------------------------- DATA -------------------------------------------
+data:
+  src: {
+     #'PRISM': "prism",
+     #'ERA5_1': "era5",
+     'HRRR': "hrrr",
+  }
+  pred_range: {
+     #'PRISM': 1,
+     #'ERA5_1': 6,
+     'HRRR': 1,
+  }
+  history: {
+     #'PRISM': 2,
+     #'ERA5_1': 2,
+     'HRRR': 2,
+  }
+  window: {
+     #'PRISM': 1,
+     #'ERA5_1': 6,
+     'HRRR': 1,
+  }
+  # Input data at 0.1 deg resolution
+  low_res_dir: {
+    'HRRR': "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.1_deg/",
+  }
+  # Output/target data at 0.05 deg resolution
+  high_res_dir: {
+    'HRRR': "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.05_deg/",
+  }
+
+  # input spatial resolution in km
+  spatial_resolution: {
+    'ERA5_1': 111,
+    'ERA5_2': 111,
+    'PRISM':  18,
+    'DAYMET_1':  18,
+    'DAYMET_2':  4,
+    'HRRR':  11,
+  }
+
+  start_year: {
+    'HRRR': 2021,
+  }
+
+  num_years: {
+    'HRRR': 3,
+  }
+
+
+
+  default_vars: [
+    "land_sea_mask",
+    "orography",
+    "lattitude",
+#    "landcover",
+    "2m_temperature",
+#    "2m_temperature_max",
+#    "2m_temperature_min",
+#    "temperature_200",
+    "temperature_475",
+    "temperature_850",
+#    "temperature_1000",
+    "10m_u_component_of_wind",
+    "u_component_of_wind_200",
+#    "u_component_of_wind_500",
+    "u_component_of_wind_850",
+    "10m_v_component_of_wind",
+    "v_component_of_wind_200",
+#    "v_component_of_wind_500",
+    "v_component_of_wind_850",
+#    "specific_humidity_200",
+#    "specific_humidity_500",
+    "specific_humidity_850",
+    "specific_humidity_900",
+    "vertical_velocity_850",
+    "vertical_velocity_900",
+#    "total_precipitation_24hr",
+#    "volumetric_soil_water_layer_1",
+    "composite_reflectivity",
+    "mean_sea_level_pressure",
+    "surface_pressure",
+    "geopotential_475",
+    "geopotential_850",
+  ]
+  
+  dict_in_variables: {
+    'ERA5_1': [
+    "land_sea_mask",
+    "orography",
+    "lattitude",
+#    "landcover",
+    "2m_temperature",
+#    "2m_temperature_max",
+#    "2m_temperature_min",
+#    "temperature_200",
+#    "temperature_500",
+#    "temperature_850",
+    "10m_u_component_of_wind",
+#    "u_component_of_wind_200",
+#    "u_component_of_wind_500",
+#    "u_component_of_wind_850",
+    "10m_v_component_of_wind",
+#    "v_component_of_wind_200",
+#    "v_component_of_wind_500",
+#    "v_component_of_wind_850",
+#    "specific_humidity_200",
+#    "specific_humidity_500",
+#    "specific_humidity_850",
+#    "total_precipitation_24hr",
+#    "volumetric_soil_water_layer_1",
+    ],
+    'ERA5_2': [
+    "land_sea_mask",
+    "orography",
+    "lattitude",
+    "landcover",
+    "2m_temperature",
+    "2m_temperature_max",
+    "2m_temperature_min",
+    "temperature_200",
+    "temperature_500",
+    "temperature_850",
+    "10m_u_component_of_wind",
+    "u_component_of_wind_200",
+    "u_component_of_wind_500",
+    "u_component_of_wind_850",
+    "10m_v_component_of_wind",
+    "v_component_of_wind_200",
+    "v_component_of_wind_500",
+    "v_component_of_wind_850",
+    "specific_humidity_200",
+    "specific_humidity_500",
+    "specific_humidity_850",
+    "total_precipitation_24hr",
+    "volumetric_soil_water_layer_1",
+    ],
+    'PRISM': [
+      "land_sea_mask",
+      "orography",
+      "lattitude",
+      "landcover",
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+    ],
+    'DAYMET_1': [
+      "land_sea_mask",
+      "orography",
+      "lattitude",
+      "landcover",
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+    ],
+    'DAYMET_2': [
+      "land_sea_mask",
+      "orography",
+      "lattitude",
+      "landcover",
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+    ],
+    'HRRR': [
+      "land_sea_mask",
+      "orography",
+      "lattitude",
+      "2m_temperature",
+      "mean_sea_level_pressure",
+      "surface_pressure",
+#      "geopotential_200",
+      "geopotential_475",
+      "geopotential_850",
+#      "specific_humidity_200",
+      "specific_humidity_850",
+      "specific_humidity_900",
+#      "temperature_200",
+      "temperature_475",
+      "temperature_850",
+#      "u_component_of_wind_200",
+#      "v_component_of_wind_200",
+      "u_component_of_wind_850",
+      "v_component_of_wind_850",
+#      "vertical_velocity_200",
+      "vertical_velocity_850",
+      "vertical_velocity_900",
+    ],
+
+
+  }
+
+  dict_out_variables: {
+    'ERA5_1':[
+#         "2m_temperature",
+#        "total_precipitation_24hr",
+#        "2m_temperature_min",
+        #"2m_temperature_max",
+        "10m_u_component_of_wind",
+#        "10m_v_component_of_wind",
+    ],
+    'ERA5_2':[
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+#      "10m_u_component_of_wind",
+#      "10m_v_component_of_wind",
+    ],
+    'PRISM': [
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+    ],
+    'DAYMET_1': [
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+    ],
+    'DAYMET_2': [
+      "total_precipitation_24hr",
+      "2m_temperature_min",
+      "2m_temperature_max",
+    ],
+    'HRRR': [
+      # "2m_temperature",
+      # "mean_sea_level_pressure",
+      # "surface_pressure",
+      # "geopotential_475",
+      # "geopotential_850",
+      # "specific_humidity_850",
+      # "specific_humidity_900",
+      # "temperature_475",
+      # "temperature_850",
+      # "u_component_of_wind_850",
+      # "v_component_of_wind_850",
+      # "vertical_velocity_850",
+      # "vertical_velocity_900",
+      "composite_reflectivity",
+    ],
+  }
+
+
+  var_weights: {
+    "2m_temperature": 1,
+    "temperature_475": 1,
+    "temperature_850": 1,
+    "mean_sea_level_pressure": 5,
+    "surface_pressure": 2,
+    "geopotential_475": 2,
+    "geopotential_850": 2,
+    "specific_humidity_850": 2,
+    "specific_humidity_900": 2,
+    "10m_u_component_of_wind": 1,
+    "10m_v_component_of_wind": 1,
+    "u_component_of_wind_850": 2,
+    "v_component_of_wind_850": 2,
+    "vertical_velocity_850": 2,
+    "vertical_velocity_900":  2,
+    "total_precipitation_24hr": 1,
+    "composite_reflectivity": 1,
+  }
+
+
+

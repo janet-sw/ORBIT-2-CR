@@ -1,0 +1,78 @@
+# Configuration for HRRR Composite Reflectivity — Experiment 2
+# Strategy: Train with lat_mse first to learn spatial structure
+# Uses all 16 input variables for maximum information
+
+trainer:
+  max_epochs: 31
+  batch_size: 32
+  num_workers: 2
+  checkpoint: /lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v3/checkpoint_epoch_0009.pt  # Set to checkpoint path to resume, or leave empty to start fresh
+  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v3"
+  data_type: "bfloat16"
+  train_loss: "lat_mse"
+  num_gpus: 16
+  buffer_size: 100
+
+parallelism:
+  fsdp: 1
+  simple_ddp: 1
+  tensor_par: 1
+  seq_par: 1
+
+data:
+  forecast_type: "downscaling"
+  low_res_dir: "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.1_deg/"
+  high_res_dir: "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.05_deg/"
+
+  variables:
+    - "land_sea_mask"
+    - "orography"
+    - "lattitude"
+    - "2m_temperature"
+    - "mean_sea_level_pressure"
+    - "surface_pressure"
+    - "geopotential_475"
+    - "geopotential_850"
+    - "specific_humidity_850"
+    - "specific_humidity_900"
+    - "temperature_475"
+    - "temperature_850"
+    - "u_component_of_wind_850"
+    - "v_component_of_wind_850"
+    - "vertical_velocity_850"
+    - "vertical_velocity_900"
+
+  out_variables:
+    - "composite_reflectivity"
+
+model:
+  preset: "res_slimvit"
+
+  img_size: [256, 512]
+  superres_factor: 2
+
+  # Model architecture
+  history: 1
+  cnn_ratio: 4
+  patch_size: 8
+  embed_dim: 1536
+  depth: 8
+  decoder_depth: 4
+  num_heads: 12
+  mlp_ratio: 4.0
+  drop_path: 0.1
+  drop_rate: 0.1
+  learn_pos_emb: True
+  output_refine_cnn: False # Residual-block CNN to smooth patch boundary artifacts after unpatchify
+  grad_loss_weight: 0.0     # Image gradient loss weight to penalize discontinuities
+
+  # Optimizer settings
+  base_lr: 5e-5
+  weight_decay: 0.00001
+  beta_1: 0.9
+  beta_2: 0.99
+
+  # Scheduler settings
+  warmup_epochs: 5
+  warmup_start_lr: 1e-7
+  eta_min: 1e-7
