@@ -3,11 +3,11 @@
 # Uses all 16 input variables for maximum information
 
 trainer:
-  max_epochs: 31
+  max_epochs: 100
   batch_size: 32
   num_workers: 2
-  checkpoint: /lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v3/checkpoint_epoch_0009.pt  # Set to checkpoint path to resume, or leave empty to start fresh
-  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v3"
+  checkpoint: /lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v5/checkpoint_epoch_0068.pt # Set to checkpoint path to resume, or leave empty to start fresh
+  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v5"
   data_type: "bfloat16"
   train_loss: "lat_mse"
   num_gpus: 16
@@ -63,7 +63,7 @@ model:
   drop_path: 0.1
   drop_rate: 0.1
   learn_pos_emb: True
-  output_refine_cnn: False # Residual-block CNN to smooth patch boundary artifacts after unpatchify
+  output_refine_cnn: True # Residual-block CNN to smooth patch boundary artifacts after unpatchify
   grad_loss_weight: 0.0     # Image gradient loss weight to penalize discontinuities
 
   # Optimizer settings

@@ -149,13 +149,17 @@ class Res_Slim_ViT(nn.Module):
         # Optional output refinement CNN: residual-block CNN applied after unpatchify + path2
         # Smooths patch boundary artifacts and adds fine spatial detail.
         # Uses residual blocks with GroupNorm for stable training and better gradient flow.
+        # KEY: refine_out is zero-initialized so the CNN contributes nothing at init,
+        # preserving the base model's output. The CNN then gradually learns corrections.
         if self.output_refine_cnn:
-            hidden_ch = 32   # memory-efficient for 512x1024 output
-            num_groups = 8   # GroupNorm groups (32 / 8 = 4 channels per group)
+            hidden_ch = 64   # enough capacity for 512x1024 boundary blending
+            num_groups = 8   # GroupNorm groups (64 / 8 = 8 channels per group)
             self.refine_in = nn.Conv2d(out_channels, hidden_ch, kernel_size=3, padding=1)
-            # 2 residual blocks: conv → GN → GELU → conv → GN + skip
+            # 3 residual blocks: conv → GN → GELU → conv → GN + skip
+            # Effective receptive field: 3 blocks × 2 layers × 3×3 ≈ 13×13 pixels
+            # Combined with refine_in/out (3×3 each): total ~19×19, covers 16×16 patch blocks
             self.refine_blocks = nn.ModuleList()
-            for _ in range(2):
+            for _ in range(3):
                 self.refine_blocks.append(nn.ModuleDict({
                     'conv1': nn.Conv2d(hidden_ch, hidden_ch, kernel_size=3, padding=1),
                     'gn1':   nn.GroupNorm(num_groups, hidden_ch),
@@ -167,6 +171,14 @@ class Res_Slim_ViT(nn.Module):
             self.output_refine = nn.Identity()
 
         self.initialize_weights()
+
+        # Zero-init refine_out AFTER initialize_weights so it overrides the default init.
+        # This ensures the refinement CNN outputs exactly zero at the start of training,
+        # so the base model's predictions are preserved and the CNN gradually learns
+        # boundary-smoothing corrections without destabilizing early training.
+        if self.output_refine_cnn:
+            nn.init.zeros_(self.refine_out.weight)
+            nn.init.zeros_(self.refine_out.bias)
 
     def initialize_weights(self):
         pos_embed = get_2d_sincos_pos_embed(

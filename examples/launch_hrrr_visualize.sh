@@ -64,11 +64,11 @@ export LD_PRELOAD=/lib64/libgcc_s.so.1:/usr/lib64/libstdc++.so.6
 #   --num_samples : how many samples to visualize (default: 5)
 #   --save_dir    : output directory for images and numpy arrays
 
-CHECKPOINT="/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v2/checkpoint_epoch_0027.pt"
-CONFIG="/ccs/home/janetw/diffusion/ORBIT-2-main/configs/hrrr_forecasting_v2.yaml"
+CHECKPOINT="/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v5/checkpoint_epoch_0091.pt"
+CONFIG="/ccs/home/janetw/diffusion/ORBIT-2-CR/configs/hrrr_forecasting_v2.yaml"
 
 time srun -n $((SLURM_JOB_NUM_NODES*8)) \
-python /ccs/home/janetw/diffusion/ORBIT-2-main/examples/hrrr_visualize.py ${CONFIG} \
+python /ccs/home/janetw/diffusion/ORBIT-2-CR/examples/hrrr_visualize.py ${CONFIG} \
     --checkpoint ${CHECKPOINT} \
     --index 0 \
     --num_samples 5 \
