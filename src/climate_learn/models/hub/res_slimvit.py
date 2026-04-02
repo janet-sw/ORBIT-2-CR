@@ -112,13 +112,12 @@ class Res_Slim_ViT(nn.Module):
         self.norm = nn.LayerNorm(embed_dim)
 
         #skip connection path
-        # Count how many skip constants are actually present in default_vars.
-        # If num_constant_vars is explicitly provided, use that instead.
-        if num_constant_vars is not None:
-            self.num_skip_constants = num_constant_vars
-        else:
-            self.num_skip_constants = sum(1 for c in self.SKIP_CONSTANTS if c in default_vars)
-        skip_in_channels = self.num_skip_constants + out_channels
+        # Feed ALL input variables so the CNN path can learn a coarse cross-variable
+        # mapping (e.g. atmospheric state -> reflectivity) as a baseline for the
+        # transformer to refine.  The original design selected only output vars +
+        # static constants, which left the path nearly dead for cross-variable tasks
+        # where the target is not among the inputs.
+        skip_in_channels = in_channels * history       # all 16 input channels
         self.path2 = nn.ModuleList()
         self.path2.append(nn.Conv2d(in_channels=skip_in_channels, out_channels=cnn_ratio*superres_mag*superres_mag, kernel_size=(3, 3), stride=1, padding=1))
         self.path2.append(nn.GELU())
@@ -224,16 +223,20 @@ class Res_Slim_ViT(nn.Module):
 
     def unpatchify(self, x: torch.Tensor, scaling =1, out_channels=1):
         """
-        x: (B, L, V * patch_size**2)
-        return imgs: (B, V, H, W)
+        x: (B, L, V * (patch_size * scaling)**2)
+        return imgs: (B, V, H * scaling, W * scaling)
+
+        Each encoder token maps to a (patch_size * scaling) x (patch_size * scaling)
+        output block.  The grid dimensions are the encoder's (h_enc, w_enc), NOT the
+        super-resolved grid, so the reshape preserves the correct 2-D layout.
         """
-        p = self.patch_size
+        p_out = self.patch_size * scaling            # e.g. 8 * 2 = 16
         c = out_channels
-        h = self.img_size[0] * scaling // p
-        w = self.img_size[1] *scaling // p
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, c))
+        h = self.img_size[0] // self.patch_size      # encoder grid height (32)
+        w = self.img_size[1] // self.patch_size       # encoder grid width  (64)
+        x = x.reshape(shape=(x.shape[0], h, w, p_out, p_out, c))
         x = torch.einsum("nhwpqc->nchpwq", x)
-        imgs = x.reshape(shape=(x.shape[0], c, h * p, w * p))
+        imgs = x.reshape(shape=(x.shape[0], c, h * p_out, w * p_out))
         return imgs
 
 
@@ -288,22 +291,12 @@ class Res_Slim_ViT(nn.Module):
         return x
 
 
-    def residual_connection(self, x: torch.Tensor, out_var_index, num_missing_out_vars=0):
+    def residual_connection(self, x: torch.Tensor):
         """
-         x: B, in channels, H, W
-         out_var_index: indices of channels to select from x
-         num_missing_out_vars: number of output vars not present in input (zero-padded)
+         x: B, in_channels, H, W   (full input tensor — all variables)
+         returns: B, out_channels, H*mag, W*mag
         """
-        selected = x[:, out_var_index, :, :]
-        # Zero-pad for output variables not present in input (e.g. composite_reflectivity)
-        if num_missing_out_vars > 0:
-            B, _, H, W = selected.shape
-            zeros = torch.zeros(B, num_missing_out_vars, H, W, device=x.device, dtype=x.dtype)
-            selected = torch.cat([zeros, selected], dim=1)
-
-        #selected: B, (out_channels + num_skip_constants), H, W
-        path2_result = self.path2(selected)
-        #path2_result: B, output channels, H*mag, W*mag
+        path2_result = self.path2(x)
         return path2_result
 
 
@@ -384,11 +377,7 @@ class Res_Slim_ViT(nn.Module):
         else:
             x = self.input_refine(x)  # identity, ensures FSDP participation
 
-        out_var_index = self.find_var_index(in_variables,out_variables)
-        # Count output variables missing from input (need zero-padding in residual path)
-        num_missing_out_vars = sum(1 for v in out_variables if v not in in_variables)
-
-        path2_result = self.residual_connection(x, out_var_index, num_missing_out_vars)
+        path2_result = self.residual_connection(x)
 
         x = self.forward_encoder(x, in_variables)
 

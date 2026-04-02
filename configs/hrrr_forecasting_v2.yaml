@@ -6,8 +6,8 @@ trainer:
   max_epochs: 100
   batch_size: 32
   num_workers: 2
-  checkpoint: /lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v5/checkpoint_epoch_0068.pt # Set to checkpoint path to resume, or leave empty to start fresh
-  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v5"
+  checkpoint: /lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v6/checkpoint_epoch_0090.pt # Set to checkpoint path to resume, or leave empty to start fresh
+  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v6"
   data_type: "bfloat16"
   train_loss: "lat_mse"
   num_gpus: 16
