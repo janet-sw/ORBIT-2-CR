@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH -A lrn036
-#SBATCH -J hrrr-vis
+#SBATCH -J hrrr-diff-vis
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:8
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=7
-#SBATCH -t 00:15:00
+#SBATCH -t 00:30:00
 #SBATCH -q debug
-#SBATCH -o logs/hrrr-vis-%j.out
-#SBATCH -e logs/hrrr-vis-%j.out
+#SBATCH -o logs/hrrr-diff-vis-%j.out
+#SBATCH -e logs/hrrr-diff-vis-%j.out
 
 [ -z $JOBID ] && JOBID=$SLURM_JOB_ID
 [ -z $JOBSIZE ] && JOBSIZE=$SLURM_JOB_NUM_NODES
@@ -27,8 +27,6 @@ module load libfabric/1.22.0
 module use -a /lustre/orion/world-shared/lrn036/jyc/frontier/sw/modulefiles
 module load SR_tools/devel-mpich8.1.31
 module load aws-ofi-rccl/devel
-
-echo $LD_LIBRARY_PATH
 
 export FI_MR_CACHE_MONITOR=kdreg2
 export FI_CXI_DEFAULT_CQ_SIZE=131072
@@ -57,19 +55,25 @@ export ORBIT_USE_DDSTORE=0
 export LD_PRELOAD=/lib64/libgcc_s.so.1:/usr/lib64/libstdc++.so.6
 
 # ============================================================
-# HRRR Visualization
+# HRRR Diffusion Visualization
 # ============================================================
-# Change the checkpoint path and options as needed:
-#   --index       : starting test sample index (default: 0)
-#   --num_samples : how many samples to visualize (default: 5)
-#   --save_dir    : output directory for images and numpy arrays
+# Options:
+#   --diff_checkpoint : path to trained diffusion model checkpoint
+#   --num_steps       : Heun sampling steps (20=fast, 30=good, 50=best)
+#   --num_samples     : how many test samples to visualize
+#   --index           : starting test sample index
+#   --save_dir        : output directory
+#   --warm_start      : use SDEdit warm-start (recommended)
+#   --sigma_start     : starting sigma for warm-start (default: 2.0)
 
-CHECKPOINT="/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v5/checkpoint_epoch_0091.pt"
-CONFIG="/ccs/home/janetw/diffusion/ORBIT-2-CR/configs/hrrr_forecasting_v2.yaml"
+CONFIG="/ccs/home/janetw/diffusion/ORBIT-2-CR/configs/hrrr_diffusion_refine.yaml"
+DIFF_CKPT="/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_diffusion_v2/checkpoint_epoch_0034.pt"
 
 time srun -n $((SLURM_JOB_NUM_NODES*8)) \
-python /ccs/home/janetw/diffusion/ORBIT-2-CR/examples/hrrr_visualize.py ${CONFIG} \
-    --checkpoint ${CHECKPOINT} \
+python /ccs/home/janetw/diffusion/ORBIT-2-CR/examples/hrrr_diffusion_visualize.py ${CONFIG} \
+    --diff_checkpoint ${DIFF_CKPT} \
+    --num_steps 30 \
+    --warm_start --sigma_start 2.0 \
     --index 0 \
     --num_samples 5 \
-    --save_dir visualizations
+    --save_dir visualizations_diffusion

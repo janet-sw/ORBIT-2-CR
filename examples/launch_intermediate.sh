@@ -79,4 +79,4 @@ export LD_PRELOAD=/lib64/libgcc_s.so.1:/usr/lib64/libstdc++.so.6
 #python ./intermediate_downscaling.py ../configs/interm_8m_ft.yaml
 
 time srun -n $((SLURM_JOB_NUM_NODES*8)) \
-python /ccs/home/janetw/diffusion/ORBIT-2-CR/examples/era5_forecasting.py /ccs/home/janetw/diffusion/ORBIT-2-CR/configs/hrrr_forecasting_v2.yaml
+python /ccs/home/janetw/diffusion/ORBIT-2-CR/examples/hrrr_diffusion_training.py /ccs/home/janetw/diffusion/ORBIT-2-CR/configs/hrrr_diffusion_refine.yaml

@@ -1,0 +1,95 @@
+# Configuration for HRRR Composite Reflectivity — Diffusion Refinement (Stage 2)
+#
+# Two-stage approach:
+#   Stage 1: MSE-trained Res_Slim_ViT (v6) produces blurry mean predictions.
+#   Stage 2: EDM-based conditional diffusion sharpens the predictions.
+#
+# The frozen v6 backbone generates conditioning on the fly.
+# A lightweight ConditionalUNet (~30M params) learns to denoise.
+
+trainer:
+  max_epochs: 200
+  batch_size: 8
+  num_workers: 2
+  checkpoint:  /lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_diffusion_v2/checkpoint_epoch_0024.pt             # Start fresh — old checkpoints used wrong LR
+  checkpoint_save_path: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_diffusion_v2"
+  data_type: "bfloat16"
+  buffer_size: 100
+  val_interval: 10          # Run validation every N epochs
+  save_interval: 5          # Save checkpoint every N epochs
+
+data:
+  forecast_type: "downscaling"
+  low_res_dir: "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.1_deg/"
+  high_res_dir: "/lustre/orion/world-shared/csc662/jyc/data/hrrr_v2/0.05_deg/"
+
+  # Same 16 input variables as v6
+  variables:
+    - "land_sea_mask"
+    - "orography"
+    - "lattitude"
+    - "2m_temperature"
+    - "mean_sea_level_pressure"
+    - "surface_pressure"
+    - "geopotential_475"
+    - "geopotential_850"
+    - "specific_humidity_850"
+    - "specific_humidity_900"
+    - "temperature_475"
+    - "temperature_850"
+    - "u_component_of_wind_850"
+    - "v_component_of_wind_850"
+    - "vertical_velocity_850"
+    - "vertical_velocity_900"
+
+  out_variables:
+    - "composite_reflectivity"
+
+# Frozen v6 backbone (Stage 1 model) — architecture must match v6 checkpoint
+backbone:
+  checkpoint: "/lustre/orion/csc662/proj-shared/janet/checkpoints/hrrr_refc_v6/checkpoint_epoch_0099.pt"
+  img_size: [256, 512]
+  superres_factor: 2
+  history: 1
+  cnn_ratio: 4
+  patch_size: 8
+  embed_dim: 1536
+  depth: 8
+  decoder_depth: 4
+  num_heads: 12
+  mlp_ratio: 4.0
+  learn_pos_emb: True
+  output_refine_cnn: True
+
+# Diffusion model (Stage 2) — ConditionalUNet + EDM preconditioning
+diffusion:
+  # UNet architecture
+  in_channels: 2              # noisy_target (1) + v6_prediction (1)
+  out_channels: 1             # denoised composite_reflectivity
+  base_channels: 64
+  channel_mults: [1, 2, 4, 4] # 4-level encoder-decoder
+  num_res_blocks: 2
+  time_emb_dim: 256
+  num_groups: 8
+
+  # EDM preconditioning
+  sigma_data: 1.0             # Assumes normalized data (mean=0, std=1)
+
+  # Training noise distribution: σ ~ LogNormal(P_mean, P_std²)
+  P_mean: -1.2
+  P_std: 1.2
+
+  # Sampling (Heun ODE solver)
+  val_num_steps: 20           # Steps for validation sampling (faster)
+  # For final inference, use 30-50 steps for best quality
+
+  # EMA (Exponential Moving Average) for smoother sampling weights
+  ema_decay: 0.9999
+
+  # Optimizer — NOTE: base_lr is used directly (no sqrt scaling).
+  # EDM paper uses a flat 2e-4; we use 1e-4 for stability with bfloat16.
+  base_lr: 1e-4
+  weight_decay: 1e-4
+  beta_1: 0.9
+  beta_2: 0.999
+  eta_min: 1e-6
